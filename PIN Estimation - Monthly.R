@@ -31,41 +31,42 @@ sell_data <- tbl_xts(sell_data)
 
 numcols <- 1:ncol(sell_data)
 
-first_year <- substr(index(buy_data[1,]), 1, 4)
-
-last_year <- substr(index(buy_data[nrow(buy_data),]), 1, 4)
-
-yrs <- as.numeric(first_year):as.numeric(last_year) %>%
+yr_mon <- buy_data %>%
+  apply.monthly(., sum) %>%
+  index() %>%
   as.character()
 
-pin_res <- matrix(NA, nrow = 6*length(yrs), ncol = ncol(buy_data))
+pin_res <- matrix(NA, nrow = 6*length(yr_mon), ncol = ncol(buy_data))
 pin_res <- data.frame(pin_res)
 colnames(pin_res) <- colnames(buy_data)
 
-res_yrs <- matrix(NA, nrow = 6*length(yrs), ncol = 1)
-colnames(res_yrs) <- "Year"
+res_yrs <- matrix(NA, nrow = 6*length(yr_mon), ncol = 1)
+colnames(res_yrs) <- "YearMon"
 
 pin_res <- cbind(res_yrs, pin_res)
 
 a <- 1
 b <- 6
 
-for (yr in yrs) {
+
+for (yr in yr_mon) {
   
   pin_res[a:b, 1] <- yr
   
   for (i in numcols) {
     
-    pindata <- cbind(buy_data[yr, i], sell_data[yr, i])
+    ext <- substr(yr, 1, 7)
+    
+    pindata <- cbind(buy_data[ext, i], sell_data[ext, i])
     colnames(pindata) <- c("Buy", "Sell")
     
     if (all(is.na(pindata))==TRUE){
       
-    } else if (sum(is.na(pindata)==F) < 60 * 2) {
+    } else if (sum(is.na(pindata)==FALSE) < 20) {
       
     } else {
       
-      pindata[is.na(pindata)] <- 0
+      pindata[is.na(pindata)] <- 0 
       result <- pin_est(numbuys = pindata[,"Buy"],
                         numsells = pindata[,"Sell"], 
                         confint = TRUE, ci_control = list(n = 1000, seed = 123), 
@@ -75,7 +76,7 @@ for (yr in yrs) {
       
       df <- rbind(df, result[[3]])
       rownames(df)[6] <- "PIN"
-      pin_res[a:b, i+2] <- df
+      pin_res[a:b, i+1] <- df
       
     }
     
@@ -95,10 +96,10 @@ colnames(pin_df) <- colnames(Parameter)
 
 Parameter <- rbind(Parameter, pin_df)
 
-Parameter <- Parameter %>% slice(rep(row_number(), length(yrs)))
+Parameter <- Parameter %>% slice(rep(row_number(), length(yr_mon)))
 
-pin_res <- cbind(Parameter, pin_res)
+mon_pin <- cbind(Parameter, pin_res)
 
-write.csv(pin_res, "PIN Estimation Results - Annual.csv", row.names = FALSE)
+write.csv(mon_pin, "PIN Estimation Results - Monthly.csv", row.names = FALSE)
 
-saveRDS(pin_res, file = "PIN Estimation Results - Annual.rds")
+saveRDS(mon_pin, file = "PIN Estimation Results - Monthly.rds")
